@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WebPulse — Analytics Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0b0e14;
+    --surface: #111520;
+    --surface2: #181d2b;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf2;
+    --muted: #6b7399;
+    --accent: #4f7bff;
+    --accent2: #00e5b0;
+    --accent3: #ff6b6b;
+    --accent4: #ffb347;
+    --font: 'Sora', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 64px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+  .logo-dot {
+    width: 10px; height: 10px;
+    background: var(--accent2);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--accent2);
+    background: rgba(0,229,176,0.08);
+    border: 1px solid rgba(0,229,176,0.2);
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-family: var(--mono);
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    background: var(--accent2);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+  #range-select {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-family: var(--font);
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+  }
+
+  /* SETUP BANNER */
+  #setup-banner {
+    margin: 24px 32px;
+    background: rgba(79,123,255,0.08);
+    border: 1px solid rgba(79,123,255,0.25);
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .setup-icon { font-size: 24px; flex-shrink: 0; margin-top: 2px; }
+  .setup-text h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; color: #7da4ff; }
+  .setup-text p { font-size: 13px; color: var(--muted); line-height: 1.7; }
+  .setup-text code {
+    font-family: var(--mono);
+    background: rgba(255,255,255,0.07);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--accent2);
+  }
+
+  /* MAIN LAYOUT */
+  main { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+
+  /* STAT CARDS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: var(--border2); }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--card-accent, var(--accent));
+    border-radius: 2px 2px 0 0;
+  }
+  .stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    font-family: var(--mono);
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .stat-sub {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .stat-sub .up { color: var(--accent2); }
+  .stat-sub .down { color: var(--accent3); }
+
+  /* CHARTS ROW */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .card-meta {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  /* BOTTOM GRID */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  /* TABLES */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding: 0 0 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    padding: 9px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table .num {
+    font-family: var(--mono);
+    text-align: right;
+    color: var(--muted);
+  }
+  .data-table .bar-cell { padding-right: 8px; }
+  .bar-wrap {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.6s ease;
+  }
+
+  /* DEVICE PIES */
+  .device-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+  }
+  .legend-label { color: var(--muted); }
+  .legend-val { font-family: var(--mono); font-size: 12px; }
+
+  /* RECENT EVENTS */
+  .events-list { display: flex; flex-direction: column; gap: 0; }
+  .event-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .event-row:last-child { border-bottom: none; }
+  .event-page {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--accent);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .event-country { font-size: 12px; color: var(--muted); }
+  .event-device {
+    font-size: 10px;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: rgba(79,123,255,0.1);
+    border: 1px solid rgba(79,123,255,0.2);
+    color: #7da4ff;
+  }
+  .event-time { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+  /* LOADING */
+  #loading-overlay {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    z-index: 999;
+    transition: opacity 0.4s;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .load-text { font-size: 13px; color: var(--muted); font-family: var(--mono); }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center;
+    padding: 32px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  @media (max-width: 900px) {
+    main { padding: 16px; }
+    header { padding: 0 16px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .charts-row { grid-template-columns: 1fr; }
+    .bottom-grid { grid-template-columns: 1fr; }
+    #setup-banner { margin: 16px; }
+    #site-select { max-width: 120px !important; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <p class="load-text">Connecting to Firebase…</p>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    WebPulse
+  </div>
+  <div class="header-right">
+    <div class="status-badge">
+      <div class="status-dot"></div>
+      LIVE
+    </div>
+    <select id="site-select" onchange="loadData();loadZaloData();" style="max-width:180px;">
+      <option value="all">🌐 All Sites</option>
+    </select>
+    <select id="range-select" onchange="loadData();loadZaloData();">
+      <option value="1">Last 24h</option>
+      <option value="7" selected>Last 7 days</option>
+      <option value="30">Last 30 days</option>
+      <option value="90">Last 90 days</option>
+    </select>
+  </div>
+</header>
+
+<!-- Setup instruction banner -->
+<div id="setup-banner">
+  <div class="setup-icon">⚡</div>
+  <div class="setup-text">
+    <h3>Quick Setup — 2 Steps</h3>
+    <p>
+      <strong>Step 1:</strong> Create a Firebase project at
+      <a href="https://console.firebase.google.com" target="_blank" style="color: var(--accent);">console.firebase.google.com</a>,
+      enable <code>Firestore Database</code>, and copy your config into <code>tracker.js</code> and the <code>FIREBASE_CONFIG</code> block below in this file.<br/><br/>
+      <strong>Step 2:</strong> Add <code>&lt;script src="tracker.js"&gt;&lt;/script&gt;</code> before the <code>&lt;/body&gt;</code>
+      tag on every page you want to track.
+      Then open this dashboard — data appears here in real time.
+    </p>
+  </div>
+</div>
+
+<main>
+  <!-- STAT CARDS -->
+  <div class="stats-grid">
+    <div class="stat-card" style="--card-accent: #4f7bff;">
+      <div class="stat-label">Page Views</div>
+      <div class="stat-value" id="stat-views">—</div>
+      <div class="stat-sub" id="stat-views-sub">Loading…</div>
+    </div>
+    <div class="stat-card" style="--card-accent: #00e5b0;">
+      <div class="stat-label">Unique Sessions</div>
+      <div class="stat-value" id="stat-sessions">—</div>
+      <div class="stat-sub" id="stat-sessions-sub">Loading…</div>
+    </div>
+    <div class="stat-card" style="--card-accent: #a78bfa;">
+      <div class="stat-label">Avg Active Time</div>
+      <div class="stat-value" id="stat-avgtime">—</div>
+      <div class="stat-sub" id="stat-avgtime-sub">per active user</div>
+    </div>
+    <div class="stat-card" style="--card-accent: #00e5b0;">
+      <div class="stat-label">New Visitors</div>
+      <div class="stat-value" id="stat-new">—</div>
+      <div class="stat-sub" id="stat-new-sub">Loading…</div>
+    </div>
+    <div class="stat-card" style="--card-accent: #f472b6;">
+      <div class="stat-label">Returning Visitors</div>
+      <div class="stat-value" id="stat-returning">—</div>
+      <div class="stat-sub" id="stat-returning-sub">Loading…</div>
+    </div>
+    <div class="stat-card" style="--card-accent: #ffb347;">
+      <div class="stat-label">Countries</div>
+      <div class="stat-value" id="stat-countries">—</div>
+      <div class="stat-sub" id="stat-countries-sub">Loading…</div>
+    </div>
+    <div class="stat-card" style="--card-accent: #ff6b6b;">
+      <div class="stat-label">Top Device</div>
+      <div class="stat-value" id="stat-device" style="font-size: 20px; padding-top: 6px;">—</div>
+      <div class="stat-sub" id="stat-device-sub">Loading…</div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="card-header">
+        <span class="card-title">Page Views Over Time</span>
+        <span class="card-meta" id="views-range-label">last 7 days</span>
+      </div>
+      <div style="position: relative; height: 220px;">
+        <canvas id="viewsChart" role="img" aria-label="Line chart of page views over time"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="card-header">
+        <span class="card-title">New vs Returning</span>
+      </div>
+      <div style="position: relative; height: 140px;">
+        <canvas id="visitorTypeChart" role="img" aria-label="Doughnut chart of new vs returning visitors"></canvas>
+      </div>
+      <div class="device-legend" id="visitor-type-legend"></div>
+    </div>
+    <div class="chart-card">
+      <div class="card-header">
+        <span class="card-title">Browsers</span>
+      </div>
+      <div style="position: relative; height: 160px;">
+        <canvas id="browserChart" role="img" aria-label="Doughnut chart of browser usage"></canvas>
+      </div>
+      <div class="device-legend" id="browser-legend"></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM ROW -->
+  <div class="bottom-grid">
+    <!-- Top Pages -->
+    <div class="chart-card">
+      <div class="card-header">
+        <span class="card-title">Top Pages</span>
+        <span class="card-meta" id="pages-count">—</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Page</th>
+            <th style="width: 80px;"></th>
+            <th class="num">Views</th>
+          </tr>
+        </thead>
+        <tbody id="pages-body">
+          <tr><td colspan="3"><div class="empty-state">No data yet</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Top Countries -->
+    <div class="chart-card">
+      <div class="card-header">
+        <span class="card-title">Top Countries</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Country</th>
+            <th style="width: 80px;"></th>
+            <th class="num">Visitors</th>
+          </tr>
+        </thead>
+        <tbody id="countries-body">
+          <tr><td colspan="3"><div class="empty-state">No data yet</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Top Cities -->
+    <div class="chart-card">
+      <div class="card-header">
+        <span class="card-title">Top Cities</span>
+        <span class="card-meta" id="cities-count">—</span>
+      </div>
+      <!-- City filter -->
+      <div style="margin-bottom: 12px;">
+        <select id="city-country-filter" onchange="filterCities()" style="width:100%; background:var(--surface2); color:var(--text); border:1px solid var(--border2); border-radius:8px; padding:5px 10px; font-family:var(--font); font-size:12px; cursor:pointer; outline:none;">
+          <option value="all">🌍 All Countries</option>
+        </select>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>City</th>
+            <th style="width: 80px;"></th>
+            <th class="num">Visitors</th>
+          </tr>
+        </thead>
+        <tbody id="cities-body">
+          <tr><td colspan="3"><div class="empty-state">No data yet</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Devices -->
+    <div class="chart-card">
+      <div class="card-header">
+        <span class="card-title">Devices</span>
+      </div>
+      <div style="position: relative; height: 120px;">
+        <canvas id="deviceChart" role="img" aria-label="Doughnut chart of device types"></canvas>
+      </div>
+      <div class="device-legend" id="device-legend"></div>
+    </div>
+  </div>
+
+  <!-- RECENT EVENTS -->
+  <div class="chart-card">
+    <div class="card-header">
+      <span class="card-title">Recent Visitors</span>
+      <span class="card-meta" id="recent-count">—</span>
+    </div>
+    <div class="events-list" id="events-list">
+      <div class="empty-state">No data yet</div>
+    </div>
+  </div>
+
+  <!-- ZALO SECTION -->
+  <div style="margin-top: 20px;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+      <div style="width:32px;height:32px;background:linear-gradient(135deg,#0068ff,#00c4ff);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;letter-spacing:-0.5px;">Z</div>
+      <span style="font-size:16px;font-weight:700;letter-spacing:-0.02em;">Zalo Button Analytics</span>
+    </div>
+
+    <!-- Zalo stat cards -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px;">
+      <div class="stat-card" style="--card-accent:#0068ff;">
+        <div class="stat-label">Total Zalo Clicks</div>
+        <div class="stat-value" id="zalo-total">—</div>
+        <div class="stat-sub" id="zalo-total-sub">in selected period</div>
+      </div>
+      <div class="stat-card" style="--card-accent:#00c4ff;">
+        <div class="stat-label">Unique Clickers</div>
+        <div class="stat-value" id="zalo-unique">—</div>
+        <div class="stat-sub" id="zalo-unique-sub">unique visitors</div>
+      </div>
+      <div class="stat-card" style="--card-accent:#00e5b0;">
+        <div class="stat-label">Click-through Rate</div>
+        <div class="stat-value" id="zalo-ctr">—</div>
+        <div class="stat-sub" id="zalo-ctr-sub">of all visitors</div>
+      </div>
+      <div class="stat-card" style="--card-accent:#f472b6;">
+        <div class="stat-label">New vs Returning</div>
+        <div class="stat-value" id="zalo-newret" style="font-size:18px;padding-top:4px;">—</div>
+        <div class="stat-sub" id="zalo-newret-sub">clicker breakdown</div>
+      </div>
+    </div>
+
+    <!-- Zalo clicks table + top pages -->
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+      <div class="chart-card">
+        <div class="card-header">
+          <span class="card-title">Recent Zalo Clicks</span>
+          <span class="card-meta" id="zalo-recent-count">—</span>
+        </div>
+        <div id="zalo-events-list">
+          <div class="empty-state">No Zalo clicks recorded yet</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="card-header">
+          <span class="card-title">Clicks by Page</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Page</th><th style="width:70px;"></th><th class="num">Clicks</th></tr>
+          </thead>
+          <tbody id="zalo-pages-body">
+            <tr><td colspan="3"><div class="empty-state">No data yet</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script>
+// ─── CONFIGURE YOUR FIREBASE PROJECT HERE ────────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyDRMlSM1uxzQ-JV6W74spJZ2k7MS4ZO01A",
+  authDomain:        "traffic-checking.firebaseapp.com",
+  projectId:         "traffic-checking",
+  storageBucket:     "traffic-checking.firebasestorage.app",
+  messagingSenderId: "772799649219",
+  appId:             "1:772799649219:web:8415aa443b4d0232461976"
+};
+// ─────────────────────────────────────────────────────────────────────────
+
+const COLLECTION = "page_views";
+let db, viewsChart, browserChart, deviceChart, allCityData = [];
+const ACCENT_COLORS = ["#4f7bff","#00e5b0","#ffb347","#ff6b6b","#a78bfa","#38bdf8","#f472b6"];
+
+function filterCities() {
+  const country = document.getElementById("city-country-filter").value;
+  let filtered = allCityData;
+  if (country !== "all") filtered = allCityData.filter(d => d[2] === country);
+  const cityMap = {};
+  filtered.forEach(([city]) => { cityMap[city] = (cityMap[city] || 0) + 1; });
+  const rows = Object.entries(cityMap).sort((a,b) => b[1]-a[1]);
+  document.getElementById("cities-count").textContent = rows.length + " cities";
+  renderTable("cities-body", rows);
+}
+
+function initFirebase() {
+  if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+  db = firebase.firestore();
+}
+
+function hideLoader() {
+  const el = document.getElementById("loading-overlay");
+  el.style.opacity = "0";
+  setTimeout(() => el.remove(), 400);
+}
+
+function getDaysAgo(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function formatTime(ts) {
+  if (!ts) return "—";
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const now = new Date();
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60) return diff + "s ago";
+  if (diff < 3600) return Math.floor(diff/60) + "m ago";
+  if (diff < 86400) return Math.floor(diff/3600) + "h ago";
+  return d.toLocaleDateString();
+}
+
+function countBy(docs, field) {
+  const map = {};
+  docs.forEach(d => {
+    const v = d[field] || "Unknown";
+    map[v] = (map[v] || 0) + 1;
+  });
+  return Object.entries(map).sort((a,b) => b[1]-a[1]);
+}
+
+function buildTimeSeriesData(docs, days) {
+  const labels = [], counts = {};
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0,10);
+    labels.push(days <= 1 ? d.getHours() + ":00" : key.slice(5));
+    counts[key] = 0;
+  }
+  docs.forEach(doc => {
+    if (!doc.timestamp) return;
+    const d = doc.timestamp.toDate ? doc.timestamp.toDate() : new Date(doc.timestamp);
+    const key = d.toISOString().slice(0,10);
+    if (counts[key] !== undefined) counts[key]++;
+  });
+  return { labels, data: Object.values(counts) };
+}
+
+function renderDonut(canvasId, labels, values, colors) {
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  const existing = Chart.getChart(canvasId);
+  if (existing) existing.destroy();
+  return new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderColor: "#0b0e14",
+        borderWidth: 2,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: (ctx) => " " + ctx.label + ": " + ctx.raw
+      }}}
+    }
+  });
+}
+
+function renderLegend(containerId, labels, values, colors) {
+  const total = values.reduce((a,b) => a+b, 0);
+  const el = document.getElementById(containerId);
+  el.innerHTML = labels.map((l, i) => `
+    <div class="legend-row">
+      <span><span class="legend-dot" style="background:${colors[i]}"></span><span class="legend-label">${l}</span></span>
+      <span class="legend-val">${values[i]} <span style="color:var(--muted)">(${total ? Math.round(values[i]/total*100) : 0}%)</span></span>
+    </div>`).join("");
+}
+
+function renderTable(tbodyId, rows, maxRows = 8) {
+  const el = document.getElementById(tbodyId);
+  if (!rows.length) { el.innerHTML = `<tr><td colspan="3"><div class="empty-state">No data yet</div></td></tr>`; return; }
+  const max = rows[0][1];
+  el.innerHTML = rows.slice(0, maxRows).map(([label, count]) => `
+    <tr>
+      <td style="max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--mono); font-size:12px; color:var(--accent)">${label}</td>
+      <td class="bar-cell"><div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(count/max*100)}%"></div></div></td>
+      <td class="num">${count}</td>
+    </tr>`).join("");
+}
+
+function renderRecentEvents(docs) {
+  const el = document.getElementById("events-list");
+  const recent = [...docs].sort((a,b) => {
+    const ta = a.timestamp?.toDate?.() || 0;
+    const tb = b.timestamp?.toDate?.() || 0;
+    return tb - ta;
+  }).slice(0, 12);
+
+  document.getElementById("recent-count").textContent = recent.length + " recent";
+
+  if (!recent.length) { el.innerHTML = '<div class="empty-state">No visitors yet</div>'; return; }
+  el.innerHTML = recent.map(d => {
+    const secs = d.active_seconds || 0;
+    const timeStr = secs === 0 ? "—" : secs < 60 ? secs + "s" : Math.floor(secs/60) + "m " + (secs%60) + "s";
+    const timeColor = secs === 0 ? "var(--muted)" : secs >= 120 ? "#00e5b0" : secs >= 30 ? "#ffb347" : "var(--text)";
+    const typeLabel = d.visitor_type === "new"
+      ? `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:100px;background:rgba(0,229,176,0.1);border:1px solid rgba(0,229,176,0.3);color:#00e5b0;">NEW</span>`
+      : d.visitor_type === "returning"
+      ? `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:100px;background:rgba(244,114,182,0.1);border:1px solid rgba(244,114,182,0.3);color:#f472b6;">RETURN</span>`
+      : `<span style="font-size:10px;color:var(--muted);">—</span>`;
+    return `
+    <div class="event-row">
+      <span class="event-page">${d.page || "/"}</span>
+      <span class="event-country">${d.country_code || "??"} ${d.city || ""}</span>
+      ${typeLabel}
+      <span class="event-device">${(d.device || "—").slice(0,3)}</span>
+      <span style="font-size:12px; font-family:var(--mono); color:${timeColor}; min-width:52px; text-align:right;" title="Active time on page">⏱ ${timeStr}</span>
+      <span class="event-time">${formatTime(d.timestamp)}</span>
+    </div>`;
+  }).join("");
+}
+
+async function populateSiteFilter() {
+  try {
+    const snap = await db.collection(COLLECTION).get();
+    const hosts = new Set(snap.docs.map(d => d.data().host).filter(Boolean));
+    const sel = document.getElementById("site-select");
+    // Keep "All Sites" option, add discovered hosts
+    const existing = Array.from(sel.options).map(o => o.value);
+    hosts.forEach(host => {
+      if (!existing.includes(host)) {
+        const opt = document.createElement("option");
+        opt.value = host;
+        opt.textContent = "🔗 " + host;
+        sel.appendChild(opt);
+      }
+    });
+  } catch(e) { /* silent */ }
+}
+
+async function loadData() {
+  const days = parseInt(document.getElementById("range-select").value);
+  const site = document.getElementById("site-select").value;
+  document.getElementById("views-range-label").textContent = "last " + days + " day" + (days>1?"s":"");
+
+  let query = db.collection(COLLECTION).orderBy("timestamp", "desc");
+  if (days < 365) {
+    query = query.where("timestamp", ">=", firebase.firestore.Timestamp.fromDate(getDaysAgo(days)));
+  }
+
+  try {
+    const snap = await query.get();
+    let docs = snap.docs.map(d => d.data());
+    if (site !== "all") docs = docs.filter(d => d.host === site);
+
+    // STAT CARDS
+    const sessions = new Set(docs.map(d => d.session_id)).size;
+    const countries = new Set(docs.map(d => d.country)).size;
+    const deviceCounts = countBy(docs, "device");
+    const topDevice = deviceCounts[0]?.[0] || "—";
+    const topDevicePct = deviceCounts[0] ? Math.round(deviceCounts[0][1]/docs.length*100) : 0;
+
+    // Avg active time — only count docs that have active_seconds > 0
+    const activeDocs = docs.filter(d => d.active_seconds > 0);
+    const avgSeconds = activeDocs.length
+      ? Math.round(activeDocs.reduce((sum, d) => sum + d.active_seconds, 0) / activeDocs.length)
+      : 0;
+    function formatDuration(s) {
+      if (s === 0) return "—";
+      if (s < 60) return s + "s";
+      const m = Math.floor(s / 60), sec = s % 60;
+      return m + "m " + (sec > 0 ? sec + "s" : "");
+    }
+
+    document.getElementById("stat-views").textContent = docs.length.toLocaleString();
+    document.getElementById("stat-views-sub").textContent = "total page hits";
+    document.getElementById("stat-sessions").textContent = sessions.toLocaleString();
+    document.getElementById("stat-sessions-sub").textContent = "unique sessions";
+    document.getElementById("stat-avgtime").textContent = formatDuration(avgSeconds);
+    document.getElementById("stat-avgtime-sub").textContent = activeDocs.length + " active user" + (activeDocs.length !== 1 ? "s" : "") + " tracked";
+
+    // NEW vs RETURNING
+    const newVisitors     = docs.filter(d => d.visitor_type === "new").length;
+    const returningVisitors = docs.filter(d => d.visitor_type === "returning").length;
+    const unknownVisitors = docs.length - newVisitors - returningVisitors;
+    const totalKnown      = newVisitors + returningVisitors || 1;
+    const newPct          = Math.round(newVisitors / totalKnown * 100);
+    const retPct          = Math.round(returningVisitors / totalKnown * 100);
+
+    document.getElementById("stat-new").textContent = newVisitors.toLocaleString();
+    document.getElementById("stat-new-sub").innerHTML = `<span style="color:#00e5b0">${newPct}%</span> of tracked visitors`;
+    document.getElementById("stat-returning").textContent = returningVisitors.toLocaleString();
+    document.getElementById("stat-returning-sub").innerHTML = `<span style="color:#f472b6">${retPct}%</span> of tracked visitors`;
+
+    // New vs Returning donut
+    const nvLabels = ["New", "Returning"];
+    const nvVals   = [newVisitors, returningVisitors];
+    const nvColors = ["#00e5b0", "#f472b6"];
+    renderDonut("visitorTypeChart", nvLabels, nvVals, nvColors);
+    renderLegend("visitor-type-legend", nvLabels, nvVals, nvColors);
+    document.getElementById("stat-countries").textContent = countries;
+    document.getElementById("stat-countries-sub").textContent = "unique countries";
+    document.getElementById("stat-device").textContent = topDevice.charAt(0).toUpperCase() + topDevice.slice(1);
+    document.getElementById("stat-device-sub").innerHTML = `<span class="up">${topDevicePct}%</span> of traffic`;
+
+    // VIEWS TIMELINE
+    const { labels, data } = buildTimeSeriesData(docs, days);
+    const ctx = document.getElementById("viewsChart").getContext("2d");
+    if (viewsChart) viewsChart.destroy();
+    viewsChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "Views",
+          data,
+          borderColor: "#4f7bff",
+          backgroundColor: "rgba(79,123,255,0.08)",
+          pointBackgroundColor: "#4f7bff",
+          pointRadius: 3,
+          tension: 0.4,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: "#6b7399", font: { family: "'DM Mono'" }, maxRotation: 0 }, grid: { color: "rgba(255,255,255,0.04)" } },
+          y: { ticks: { color: "#6b7399", font: { family: "'DM Mono'" } }, grid: { color: "rgba(255,255,255,0.04)" }, beginAtZero: true }
+        }
+      }
+    });
+
+    // BROWSERS
+    const browsers = countBy(docs, "browser").slice(0, 5);
+    const bLabels = browsers.map(b=>b[0]), bVals = browsers.map(b=>b[1]);
+    renderDonut("browserChart", bLabels, bVals, ACCENT_COLORS);
+    renderLegend("browser-legend", bLabels, bVals, ACCENT_COLORS);
+
+    // DEVICES
+    const devices = countBy(docs, "device").slice(0, 4);
+    const dLabels = devices.map(d=>d[0]), dVals = devices.map(d=>d[1]);
+    const DEVICE_COLORS = ["#4f7bff","#00e5b0","#ffb347","#ff6b6b"];
+    renderDonut("deviceChart", dLabels, dVals, DEVICE_COLORS);
+    renderLegend("device-legend", dLabels, dVals, DEVICE_COLORS);
+
+    // TOP PAGES
+    const pages = countBy(docs, "page");
+    document.getElementById("pages-count").textContent = pages.length + " pages";
+    renderTable("pages-body", pages);
+
+    // TOP COUNTRIES
+    const countriesData = countBy(docs, "country");
+    renderTable("countries-body", countriesData);
+
+    // TOP CITIES
+    allCityData = docs.map(d => [d.city || "Unknown", 1, d.country || "Unknown"]);
+    // Populate country filter dropdown
+    const cityCountrySel = document.getElementById("city-country-filter");
+    const existingOpts = Array.from(cityCountrySel.options).map(o => o.value);
+    const uniqueCountries = [...new Set(docs.map(d => d.country).filter(Boolean))].sort();
+    uniqueCountries.forEach(c => {
+      if (!existingOpts.includes(c)) {
+        const opt = document.createElement("option");
+        opt.value = c;
+        const flag = c === "Vietnam" ? "🇻🇳" : "🌍";
+        opt.textContent = flag + " " + c;
+        // Put Vietnam first after "All Countries"
+        if (c === "Vietnam") cityCountrySel.insertBefore(opt, cityCountrySel.options[1]);
+        else cityCountrySel.appendChild(opt);
+      }
+    });
+    // Auto-select Vietnam if present
+    if (uniqueCountries.includes("Vietnam") && cityCountrySel.value === "all") {
+      cityCountrySel.value = "Vietnam";
+    }
+    filterCities();
+
+    // RECENT EVENTS
+    renderRecentEvents(docs);
+
+  } catch (err) {
+    console.error("Firebase error:", err);
+    document.getElementById("stat-views").textContent = "Error";
+    document.getElementById("stat-views-sub").textContent = "Check Firebase config";
+  }
+}
+
+async function loadZaloData() {
+  const days = parseInt(document.getElementById("range-select").value);
+  const site = document.getElementById("site-select").value;
+
+  let query = db.collection("zalo_clicks").orderBy("timestamp", "desc");
+  if (days < 365) {
+    query = query.where("timestamp", ">=", firebase.firestore.Timestamp.fromDate(getDaysAgo(days)));
+  }
+
+  try {
+    const snap = await query.get();
+    let clicks = snap.docs.map(d => d.data());
+    if (site !== "all") clicks = clicks.filter(d => d.host === site);
+
+    // Stats
+    const uniqueClickers = new Set(clicks.map(d => d.visitor_id).filter(Boolean)).size;
+    const newClicks       = clicks.filter(d => d.visitor_type === "new").length;
+    const retClicks       = clicks.filter(d => d.visitor_type === "returning").length;
+
+    // CTR — compare against total page views in same period
+    const pvSnap = await db.collection("page_views")
+      .where("timestamp", ">=", firebase.firestore.Timestamp.fromDate(getDaysAgo(days)))
+      .get();
+    let pvDocs = pvSnap.docs.map(d => d.data());
+    if (site !== "all") pvDocs = pvDocs.filter(d => d.host === site);
+    const ctr = pvDocs.length ? ((clicks.length / pvDocs.length) * 100).toFixed(1) : "0.0";
+
+    document.getElementById("zalo-total").textContent     = clicks.length.toLocaleString();
+    document.getElementById("zalo-unique").textContent    = uniqueClickers.toLocaleString();
+    document.getElementById("zalo-ctr").textContent       = ctr + "%";
+    document.getElementById("zalo-ctr-sub").textContent   = `${clicks.length} clicks / ${pvDocs.length} views`;
+    document.getElementById("zalo-newret").textContent    = newClicks + " / " + retClicks;
+    document.getElementById("zalo-newret-sub").innerHTML  =
+      `<span style="color:#00e5b0">🟢 ${newClicks} new</span> · <span style="color:#f472b6">🩷 ${retClicks} returning</span>`;
+
+    // Recent clicks list
+    document.getElementById("zalo-recent-count").textContent = clicks.length + " clicks";
+    const listEl = document.getElementById("zalo-events-list");
+    if (!clicks.length) {
+      listEl.innerHTML = '<div class="empty-state">No Zalo clicks recorded yet</div>';
+    } else {
+      listEl.innerHTML = clicks.slice(0, 15).map(d => {
+        const typeLabel = d.visitor_type === "new"
+          ? `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:100px;background:rgba(0,229,176,0.1);border:1px solid rgba(0,229,176,0.3);color:#00e5b0;">NEW</span>`
+          : d.visitor_type === "returning"
+          ? `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:100px;background:rgba(244,114,182,0.1);border:1px solid rgba(244,114,182,0.3);color:#f472b6;">RETURN</span>`
+          : "";
+        return `<div class="event-row">
+          <span style="font-size:20px;">💬</span>
+          <span class="event-page">${d.page || "/"}</span>
+          <span class="event-country">${d.country_code || "??"} ${d.city || ""}</span>
+          ${typeLabel}
+          <span class="event-device">${(d.device || "—").slice(0,3)}</span>
+          <span class="event-time">${formatTime(d.timestamp)}</span>
+        </div>`;
+      }).join("");
+    }
+
+    // Clicks by page
+    const pageMap = {};
+    clicks.forEach(d => { const p = d.page||"/"; pageMap[p] = (pageMap[p]||0)+1; });
+    const pageRows = Object.entries(pageMap).sort((a,b)=>b[1]-a[1]);
+    renderTable("zalo-pages-body", pageRows, 8);
+
+  } catch(e) {
+    console.error("Zalo data error:", e);
+  }
+}
+
+// INIT
+window.addEventListener("DOMContentLoaded", async () => {
+  try {
+    initFirebase();
+    await populateSiteFilter();
+    await loadData();
+    await loadZaloData();
+
+    // Live updates every 30s
+    setInterval(() => { loadData(); loadZaloData(); }, 30000);
+  } catch(e) {
+    console.error(e);
+  } finally {
+    hideLoader();
+  }
+});
+</script>
+</body>
+</html>
